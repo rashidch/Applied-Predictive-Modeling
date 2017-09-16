@@ -1,0 +1,94 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+
+library(caret)
+library(corrplot)
+library(e1071)
+library(lattice)
+library(AppliedPredictiveModeling)
+
+
+```
+
+```{r}
+## Retain the original training set
+segTrain <- subset(segmentationOriginal, Case == "Train")
+
+## Remove the first three columns (identifier columns)
+segTrainX <- segTrain[, -(1:3)]
+segTrainClass <- segTrain$Class
+```
+
+```{r}
+## Use caret's preProcess function to transform for skewness
+segPP <- preProcess(segTrainX, method = "BoxCox")
+```
+
+```{r}
+## Apply the transformations
+segTrainTrans <- predict(segPP, segTrainX)
+```
+
+```{r}
+xyplot(AvgIntenCh1 ~ EntropyIntenCh1,
+       data = segTrainTrans,
+       groups = segTrain$Class,
+       xlab = "Channel 1 Fiber Width",
+       ylab = "Intensity Entropy Channel 1",
+       auto.key = list(columns = 2),
+       type = c("p", "g"),
+       main = "Original Data",
+       aspect = 1)
+```
+
+```{r}
+pr <- prcomp(~ AvgIntenCh1 + EntropyIntenCh1, 
+             data = segTrainTrans, 
+             scale. = TRUE)
+```
+
+```{r}
+xyplot(PC2 ~ PC1,
+       data = as.data.frame(pr$x),
+       groups = segTrain$Class,
+       xlab = "Principal Component #1",
+       ylab = "Principal Component #2",
+       main = "Transformed",
+       xlim = extendrange(pr$x),
+       ylim = extendrange(pr$x),
+       type = c("p", "g"),
+       aspect = 1)
+```
+
+```{r}
+isZV <- apply(segTrainX, 2, function(x) length(unique(x)) == 1)
+segTrainX <- segTrainX[, !isZV]
+
+segPP <- preProcess(segTrainX, c("BoxCox", "center", "scale"))
+segTrainTrans <- predict(segPP, segTrainX)
+
+segPCA <- prcomp(segTrainTrans, center = TRUE, scale. = TRUE)
+
+## Plot a scatterplot matrix of the first three components
+transparentTheme(pchSize = .8, trans = .3)
+
+panelRange <- extendrange(segPCA$x[, 1:3])
+splom(as.data.frame(segPCA$x[, 1:3]),
+      groups = segTrainClass,
+      type = c("p", "g"),
+      as.table = TRUE,
+      auto.key = list(columns = 2),
+      prepanel.limits = function(x) panelRange)
+
+```
+
+
+
